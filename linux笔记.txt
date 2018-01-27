@@ -1,0 +1,1241 @@
+##########RedHat7.4################
+###################################
+
+
+nginx version: nginx/1.8.1
+======一、安装===========================================================================================
+要求：linux内核版本2.6以上，查看命令
+[root@localhost sbin]# uname -a
+Linux localhost.localdomain 3.10.0-693.el7.x86_64 #1 SMP Thu Jul 6 19:56:57 EDT 2017 x86_64 x86_64 x86_64 GNU/Linux
+[root@localhost local]# cat /etc/redhat-release
+Red Hat Enterprise Linux Server release 7.4 (Maipo)
+
+准备
+1、安装GCC编译器
+[root@localhost sbin]# yum -y install gcc
+2、安装c++编译器
+[root@localhost sbin]# yum -y install gcc-c++
+3、安装PCRE库
+[root@localhost sbin]# yum -y install pcre pcre-devel
+4、安装zlib库
+[root@localhost sbin]# yum -y install zlib zlib-devel
+5、安装OpenSSL
+[root@localhost sbin]# yum -y install openssl openssl-devel
+
+解压
+[root@localhost tgl]# tar -zxvf nginx-1.8.1.tar.gz 
+[root@localhost tgl]# cd ./nginx-1.8.1
+编译安装nginx
+参数配置帮助
+[root@localhost nginx-1.8.1]# ./configure --help
+生产Makefile文件
+[root@localhost nginx-1.8.1]# ./configure 
+编译
+[root@localhost nginx-1.8.1]# make 
+编译安装
+[root@localhost nginx-1.8.1]# make install
+ 
+------内核参数修改-------------------------------------------------------------------------------------
+/etc/sysctl.conf
+#进程数，直接决定了最大并发数量
+fs.filemax= 999999
+#表示开启重用。允许将TIME-WAIT sockets重新用于新的TCP连接，默认为0，表示关闭；
+net.ipv4.tcp_tw_reuse = 1
+#表示当keepalive起用的时候，TCP发送keepalive消息的频度。缺省是2小时，改为20分钟
+net.ipv4.tcp_keepalive_time = 1200
+#表示如果套接字由本端要求关闭，这个参数决定了它保持在FIN-WAIT-2状态的时间
+net.ipv4.tcp_fin_timeout = 30
+#表示系统同时保持TIME_WAIT套接字的最大数量，如果超过这个数字，TIME_WAIT套接字将立刻被清除并打印警告信息。默认为180000，改 为5000。
+#对于Apache、Nginx等服务器，上几行的参数可以很好地减少TIME_WAIT套接字数量，但是对于Squid，效果却不大。此项参 数可以控制TIME_WAIT套接字的最大数量，避免Squid服务器被大量的TIME_WAIT套接字拖死。
+net.ipv4.tcp_max_tw_buckets = 5000
+#表示SYN队列的长度，默认为1024，加大队列长度为8192，可以容纳更多等待连接的网络连接数。
+net.ipv4.tcp_max_syn.backlog=8192 
+#表示开启SYN Cookies。当出现SYN等待队列溢出时，启用cookies来处理，可防范少量SYN攻击，默认为0，表示关闭；
+net.ipv4.tcp_syncookies = 1 
+#表示用于向外连接的端口范围。缺省情况下很小：32768到61000，改为1024到65000。
+net.ipv4.ip_local_port_range = 1024 61000
+net.ipv4.tcp_rmem = 4096 32768 262142
+net.ipv4.tcp_wmem = 4096 32768 262142
+net.core.netdev_max_backlog = 8096
+net.core.rmem_default = 262144
+net.core.wmem_default = 262144
+net.core.rmem_max = 2097152
+net.core.wmem_max = 2097152
+执行生效：/sbin/sysctl -p
+
+显示帮助信息
+[root@localhost sbin]# ./nginx -h
+nginx version: nginx/1.8.1
+Usage: nginx [-?hvVtq] [-s signal] [-c filename] [-p prefix] [-g directives]
+
+Options:
+  -?,-h         : this help
+  -v            : show version and exit
+  -V            : show version and configure options then exit
+  -t            : test configuration and exit
+  -q            : suppress non-error messages during configuration testing
+  -s signal     : send signal to a master process: stop, quit, reopen, reload
+  -p prefix     : set prefix path (default: /usr/local/nginx/)
+  -c filename   : set configuration file (default: conf/nginx.conf)
+  -g directives : set global directives out of configuration file
+
+------启动、停止----------------------------------------------------------------------------------------
+启动
+1、直接启动
+[root@localhost sbin]# ./nginx
+2、指定配置文件启动
+[root@localhost sbin]# ./nginx -c /usr/local/nginx/conf/nginx.conf
+3、指定安装目录启动
+[root@localhost sbin]# ./nginx -p /usr/local/nginx/
+
+测试配置信息是否有错误
+[root@localhost sbin]# ./nginx -t 
+nginx: the configuration file /usr/local/nginx/conf/nginx.conf syntax is ok
+nginx: configuration file /usr/local/nginx/conf/nginx.conf test is successful
+-q 在测试配置阶段不输出信息
+[root@localhost sbin]# ./nginx -t -q 
+
+显示版本信息
+[root@localhost sbin]# ./nginx -v
+nginx version: nginx/1.8.1
+
+查看nginx进程
+[root@localhost sbin]# ps -ef | grep nginx
+root       1483      1  0 09:20 ?        00:00:00 nginx: master process ./nginx -p /usr/local/nginx/
+nobody     1484   1483  0 09:20 ?        00:00:00 nginx: worker process
+root       1487   1425  0 09:20 pts/0    00:00:00 grep --color=auto nginx
+
+停止
+kill 命令
+kill -s 信号 主进程号
+1、快速停止（信号TERM）
+[root@localhost sbin]# ./nginx -s stop
+[root@localhost sbin]# kill -s SIGTERM 1483
+2、平缓停止（信号QUIT）
+[root@localhost sbin]# ./nginx -s quit
+[root@localhost sbin]# kill -s SIGQUIT 1483
+3、运行中的nginx重读配置文件并生效（信号HUP）
+[root@localhost sbin]# ./nginx -s reload
+[root@localhost sbin]# kill -s SIGHUP 1483
+
+日志文件回滚（信号USR1）
+[root@localhost sbin]# ./nginx -s reopen
+
+平滑升级（信号USR2）
+[root@localhost sbin]# kill -s SIGUSR2 	主进程号
+
+查看cpu信息（核数）
+[root@localhost nginx-1.8.1]# lscpu
+
+设置开机自动启动
+nginx官方提供了启动脚本:https://www.nginx.com/resources/wiki/start/topics/examples/redhatnginxinit/
+#!/bin/bash
+# nginx Startup script for the Nginx HTTP Server
+# it is v.0.0.2 version.
+# chkconfig: - 85 15
+# description: Nginx is a high-performance web and proxy server.
+#              It has a lot of features, but it's not for everyone.
+# processname: nginx
+# pidfile: /var/run/nginx.pid
+# config: /usr/local/nginx/conf/nginx.conf
+nginxd=/usr/local/nginx/sbin/nginx
+nginx_config=/usr/local/nginx/conf/nginx.conf
+nginx_pid=/var/run/nginx.pid
+RETVAL=0
+prog="nginx"
+# Source function library.
+. /etc/rc.d/init.d/functions
+# Source networking configuration.
+. /etc/sysconfig/network
+# Check that networking is up.
+[ ${NETWORKING} = "no" ] && exit 0
+[ -x $nginxd ] || exit 0
+# Start nginx daemons functions.
+start() {
+if [ -e $nginx_pid ];then
+   echo "nginx already running...."
+   exit 1
+fi
+   echo -n $"Starting $prog: "
+   daemon $nginxd -c ${nginx_config}
+   RETVAL=$?
+   echo
+   [ $RETVAL = 0 ] && touch /var/lock/subsys/nginx
+   return $RETVAL
+}
+# Stop nginx daemons functions.
+stop() {
+        echo -n $"Stopping $prog: "
+        killproc $nginxd
+        RETVAL=$?
+        echo
+        [ $RETVAL = 0 ] && rm -f /var/lock/subsys/nginx /var/run/nginx.pid
+}
+# reload nginx service functions.
+reload() {
+    echo -n $"Reloading $prog: "
+    #kill -HUP `cat ${nginx_pid}`
+    killproc $nginxd -HUP
+    RETVAL=$?
+    echo
+}
+# See how we were called.
+case "$1" in
+start)
+        start
+        ;;
+stop)
+        stop
+        ;;
+reload)
+        reload
+        ;;
+restart)
+        stop
+        start
+        ;;
+status)
+        status $prog
+        RETVAL=$?
+        ;;
+*)
+        echo $"Usage: $prog {start|stop|restart|reload|status|help}"
+        exit 1
+esac
+exit $RETVAL
+1、进入/etc/init.d/目录，新添加nginx文件，将官方提供的脚本添加到里面并修改里面两处
+nginx="/usr/sbin/nginx" 改为你自己安装目录 nginx="/usr/local/nginx/sbin/nginx"
+NGINX_CONF_FILE="/etc/nginx/nginx.conf" 改为你自己的配置文件目录 nginx="/usr/local/nginx/conf/nginx.conf"
+2、先将nginx服务加入chkconfig管理列表
+[root@localhost init.d]# chkconfig --add /etc/init.d/nginx 
+[root@localhost init.d]# chkconfig nginx on
+[root@localhost init.d]# chkconfig nginx --list
+[root@localhost init.d]# chmod 751 ./nginx 
+3、使用service对nginx进行启动，停止和重启等操作
+[root@localhost init.d]# service nginx start
+[root@localhost init.d]# service nginx stops
+[root@localhost init.d]# service nginx restart
+
+=======linux集群时间同步=================================================================================
+[root@localhost ~]# rpm -qa|grep ntp
+[root@localhost ~]# yum -y install ntp
+修改文件 /etc/ntp.conf，一共修改三处内容
+①将#去掉。并且将网段修改正确。
+restrict 192.168.1.0 mask 255.255.255.0 nomodify notrap
+②将以下4个server进行#注释掉
+#server 0.centos.pool.ntp.org iburst
+#server 1.centos.pool.ntp.org iburst
+#server 2.centos.pool.ntp.org iburst
+#server 3.centos.pool.ntp.org iburst
+③最后添加两句话：
+server 127.127.1.0 #local clock
+fudge  127.127.1.0 stratum 10
+编辑/etc/sysconfig/ntpd文件
+# Drop root to id 'ntp:ntp' by default.
+SYNC_HWCLOCK=yes
+OPTIONS="-u ntp:ntp -p /var/run/ntpd.pid -g" 
+启动ntpd服务，并且设置开机启动
+systemctl start ntpd.service
+systemctl enable ntpd.service
+每个需要同步的子节点进行确认有没有ntp。如果没有的话就安装下。
+root账户下在每个需要同步的子节点编写crontab任务(crontab -e)。这个任务的意义就是每10分钟和master01同步下服务器时间。
+0-59/10 * * * * /usr/sbin/ntpdate master01.timer.cn
+附：
+作为时间服务器的节点的时间校准可以是人工指定（不与其他集群协作的情况下），也可以是跟其他组织的时间服务器同步
+这里只说第二种情况。首先要确认当前服务器的时区，将时区设为上海
+rm -rf /etc/localtime
+ln -s /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+然后通过定时任务，与阿里云的时间服务器 ntp1.aliyun.com 同步(方法同上面的0-59/10 * * * * /usr/sbin/ntpdate master01.timer.cn)
+
+各节点执行命令
+[root@localhost ~]# ntpdate 192.168.183.130
+[root@localhost ~]# ntpdate 192.168.183.130
+[root@localhost ~]# ntpdate 192.168.183.130
+
+=======二、配置=================================================================================================
+
+1、配置项语法：
+配置名称 配置项1 配置项2 ...;
+2、定义变量
+env var | var=value
+3、嵌入其他文件
+include /path/file
+4、Nginx work进程运行的用户及用户组
+user username [groupname] 
+默认:user nobody nobody
+
+5、优化性能配置
+5.1 Nginx worker进程个数
+worker_processes number #number=cpu内核数
+查看cpu信息（核数）
+[root@localhost nginx-1.8.1]# lscpu
+
+
+======linux其他操作参考==========================================================================================
+------查看端口状态------------------------------------------------------------------------------
+netstat -ntlp
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name    
+tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      1101/nginx: master  
+tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN      1085/sshd           
+tcp        0      0 127.0.0.1:25            0.0.0.0:*               LISTEN      1184/master         
+tcp6       0      0 :::22                   :::*                    LISTEN      1085/sshd           
+tcp6       0      0 ::1:25                  :::*                    LISTEN      1184/master
+netstat命令各个参数说明如下：
+　　-t : 指明显示TCP端口
+　　-u : 指明显示UDP端口
+　　-l : 仅显示监听套接字(所谓套接字就是使应用程序能够读写与收发通讯协议(protocol)与资料的程序)
+　　-p : 显示进程标识符和程序名称，每一个套接字/端口都属于一个程序。
+　　-n : 不进行DNS轮询，显示IP(可以加速操作)
+
+=======redhat7防火墙================================================================================================
+常用的操作命令
+RHEL7 中使用了firewalld代替了原来的iptables，操作设置和原来有点不同：
+查看防火墙状态：systemctl status firewalld.service
+启动防火墙：systemctl start firewalld.service
+停止防火墙：systemctl stop firewalld.service（重启恢复）
+	    systemctl disable firewalld.service （永久关闭）
+
+1、查看防火墙状态
+[root@localhost sysconfig]# firewall-cmd --state
+running
+
+2、列出当前有几个zone
+[root@localhost sysconfig]# firewall-cmd --get-zones
+block dmz drop external home internal public trusted work
+-drop（丢弃）：任何接收的网络数据包都被丢弃，没有任何回复。仅能有发送出去的网络连接。
+-block（限制）：任何接收的网络连接都被 IPv4 的 icmp-host-prohibited 信息和 IPv6 的 icmp6-adm-prohibited 信息所拒绝。
+-public（公共）：在公共区域内使用，不能相信网络内的其他计算机不会对您的计算机造成危害，只能接收经过选取的连接。
+-external（外部）特别是为路由器启用了伪装功能的外部网。您不能信任来自网络的其他计算，不能相信它们不会对您的计算机造成危害，只能接收经过选择的连接。
+-dmz（非军事区）：用于您的非军事区内的电脑，此区域内可公开访问，可以有限地进入您的内部网络，仅仅接收经过选择的连接。
+-work（工作）：用于工作区。您可以基本相信网络内的其他电脑不会危害您的电脑。仅仅接收经过选择的连接。
+-home（家庭）：用于家庭网络。您可以基本信任网络内的其他计算机不会危害您的计算机。仅仅接收经过选择的连接。
+-internal（内部）：用于内部网络。您可以基本上信任网络内的其他计算机不会威胁您的计算机。仅仅接受经过选择的连接。
+-trusted（信任）：可接受所有的网络连接。
+
+3、取得当前活动的zones
+[root@localhost sysconfig]# firewall-cmd --get-active-zones
+public
+  interfaces: ens33
+
+4、取得默认的zone
+[root@localhost sysconfig]# firewall-cmd --get-default-zone
+public
+
+5、列出zone public 端口
+[root@localhost sysconfig]# firewall-cmd --zone=public --list-ports
+
+
+6、列出zone public当前设置
+[root@localhost sysconfig]# firewall-cmd --zone=public --list-all
+public (active)
+  target: default
+  icmp-block-inversion: no
+  interfaces: ens33
+  sources: 
+  services: ssh dhcpv6-client
+  ports: 
+  protocols: 
+  masquerade: no
+  forward-ports: 
+  source-ports: 
+  icmp-blocks: 
+  rich rules:
+
+7、取得当前支持service
+[root@localhost sysconfig]# firewall-cmd --get-service
+
+8、增加zone public开放http service
+[root@localhost sysconfig]# firewall-cmd --zone=public --add-service=http
+success
+[root@localhost sysconfig]# firewall-cmd --permanent --zone=internal --add-service=http
+success
+
+9、重新加载配置
+[root@localhost sysconfig]# firewall-cmd --reload
+success
+
+10、增加zone internal开放443/tcp协议端口
+[root@localhost sysconfig]# firewall-cmd --zone=internal --add-port=443/tcp
+success
+
+11、列出zone internal的所有service
+[root@localhost sysconfig]# firewall-cmd --zone=internal --list-services
+ssh mdns samba-client dhcpv6-client
+
+12、设置黑/白名单
+12.1、增加172.28.129.0/24网段到zone trusted（信任）
+[root@localhost sysconfig]# firewall-cmd --permanent --zone=trusted --add-source=172.28.129.0/24
+success
+12.2、列出zone truste的白名单
+[root@localhost sysconfig]# firewall-cmd --permanent --zone=trusted --list-sources
+172.28.129.0/24
+
+-------注意点--------------------------------------------------------------------------------------------------------------------------
+1、很多时候我们需要开放端口或开放某IP访问权限，需要先查看我们当前默认的zone是哪个，在对应的zone里面添加port和source，这样对外才会有作用。
+比如我当前的默认zone是public，我需要开放80端口对外访问，则执行如下命令：
+[root@localhost zones]# firewall-cmd --zone=public --permanent --add-port=80/tcp
+success
+[root@localhost zones]# firewall-cmd --reload
+success
+
+2、使用命令的时候加上 --permanent 是永久生效的意思，在重启防火墙服务后依然生效。否则，只对重启服务之前有效。
+
+3、我们执行的命令，结果其实都体现在具体的配置文件中，其实我们可以直接修改对应的配置文件即可。
+以public zone为例，对应的配置文件是/etc/firewalld/zones/public.xml，像我们刚刚添加80端口后，体现在public.xml 中的内容为：
+     [root@localhost zones]# cat public.xml
+     <?xml version="1.0" encoding="utf-8"?>
+     <zone>
+       <short>Public</short>
+       <description>For use in public areas. You do not trust the other computers on networks to not harm your computer. Only selected incoming      connections are accepted.</description>
+       <service name="dhcpv6-client"/>
+       <service name="ssh"/>
+       <port protocol="tcp" port="80"/>
+     </zone>
+ 这个大家可自己再进一步了解下配置文件的结构后，进行自行配置，不过记得要在配置后 --reload 或重启 firewall 服务。
+
+------附redhat6防火墙--------------------------------------------------------------------------------------------------------------------
+1、临时性的完全关闭防火墙，可以不重启机器(但是重启服务器后iptables防火墙服务会自动随系统启动
+[root@localhost sysconfig]# /etc/init.d/iptables status                ## 查看防火墙状态
+[root@localhost sysconfig]# /etc/init.d/iptable stop                   ## 本次关闭防火墙
+[root@localhost sysconfig]# /etc/init.d/iptable restart                ## 重启防火墙
+
+2、永久性关闭防火墙(关闭后，iptables服务不会再随机器自动启动
+# chkconfig iptables on
+# chkconfig iptables off
+
+3、redhat linux/CentOS防火墙打开TCP端口的命令
+[root@localhost sysconfig]# /sbin/iptables -I INPUT -p tcp --dport 80 -j ACCEPT  
+[root@localhost sysconfig]# /sbin/iptables -I INPUT -p tcp --dport 22 -j ACCEPT  
+[root@localhost sysconfig]# /etc/rc.d/init.d/iptables save
+
+4、
+#  iptables -L  列出iptables规则
+
+======httpd================================================================================================================================
+1、查看是否安装
+[root@localhost conf]# rpm -qa | grep httpd
+httpd-tools-2.4.6-67.el7.centos.6.x86_64
+httpd-2.4.6-67.el7.centos.6.x86_64
+2、安装
+[root@localhost conf]# yum install -y httpd
+3、查看apache/httpd，版本
+[root@localhost conf]# /usr/sbin/httpd -v 
+Server version: Apache/2.4.6 (CentOS)
+Server built:   Oct 19 2017 20:39:16
+4、启动服务
+[root@localhost conf]# /usr/sbin/httpd -k start 或 [root@localhost conf]# /usr/sbin/apachectl start 
+5、停止服务
+[root@localhost conf]# /usr/sbin/httpd -k stop 或 [root@localhost conf]# /usr/sbin/apachectl stop
+6、设置开机启动
+
+7、配置文件
+服务脚本：/etc/rc.d/init.d/httpd
+运行目录：/etc/httpd/
+配置文件：/etc/httpd/conf
+主配置文件：/etc/httpd/conf/httpd.conf
+扩展配置：/etc/httpd/conf.d/*.conf
+socket：http:80/tcp,https:443/tcp
+网页文件目录(DocumentRoot)：/var/www/html
+CGI：/var/www/cgi-bin/
+默认主页面文件：/var/www/html/index.html 
+
+统计访问次数
+netstat -an | grep :80 | wc -l
+
+======域名===============================================
+# vim /etc/hosts
+192.168.183.129 cwsdemo.com.cn
+192.168.183.129 appdemo.com.cn
+生效
+/sbin/sysctl -p
+
+=====java8安装===========================================
+下载：http://www.oracle.com/technetwork/java/javase
+1、解压
+# tar -zxvf jdk-8u151-linux-x64.tar.gz -C /usr/local/
+2、环境变量配置
+# vim /etc/profile 添加以下内容
+export JAVA_HOME=/usr/local/jdk1.8.0_151
+export JRE_HOME=${JAVA_HOME}/jre
+export CLASSPATH=.:${JAVA_HOME}/lib:${JRE_HOME}/lib
+export PATH=${JAVA_HOME}/bin:$PATH
+3、配置生效
+# source /etc/profile
+4、检查安装是否有效
+# java
+# javac
+# java -version
+
+======maven安装========================================
+下载：https://www.apache.org/
+1、解压
+# tar -zxvf apache-maven-3.5.2-bin.tar.gz  -C /usr/local/
+2、重命名
+# mv apache-maven-3.5.2 maven3.5
+3、环境变量配置
+# vim /etc/profile 添加以下内容
+MAVEN_HOME=/usr/local/maven3.5
+export MAVEN_HOME
+export PATH=${PATH}:${MAVEN_HOME}/bin
+4、配置生效
+# source /etc/profile
+5、检查安装是否有效
+# mvn -version
+
+======git安装===============================================
+下载：https://www.kernel.org/pub/software/scm/git/
+1、解压
+# tar -zxvf  git-2.9.5.tar.gz -C /usr/local/
+2、安装git依赖包
+# yum -y install curl-devel expat-devel gettext-devel openssl-devel zlib-devel gcc perl-ExtUtils-MakeMaker
+3、删除已有的git
+# yum -y remove git
+4、配置git安装路径
+# ./configure prefix=/usr/local/git/
+5、编译并且安装
+# make && make install
+6、将git指令添加到bash中
+# vi /etc/profile 
+添加如下内容：
+export PATH=$PATH:/usr/local/git/bin
+7、配置文件生效
+# source /etc/profile
+8、查看git版本号
+# git --version
+
+======Tomcat安装========================================
+下载：https://tomcat.apache.org
+1、解压
+# tar -zxvf apache-tomcat-8.5.24.tar.gz  -C /usr/local/
+2、重命名
+# mv apache-tomcat-8.5.24 tomcat8.5
+3、建立软链接
+# ln -s /usr/local/tomcat8.5/ /usr/local/tomcat
+4、
+# vim tomcat/bin/catalina.sh 添加如下内容
+CATALINA_HOME=/usr/local/tomcat8.5/
+5、修改监听端口号 默认8080
+# vim tomcat/conf/server.xml
+<Connector port="8081" protocol="HTTP/1.1"
+               connectionTimeout="20000"
+               redirectPort="8443" />
+6、启动
+[root@rocketmq-nameserver2 local]# cd tomcat/bin
+[root@rocketmq-nameserver2 bin]# ./startup.sh 
+Using CATALINA_BASE:   /usr/local/tomcat8.5/
+Using CATALINA_HOME:   /usr/local/tomcat8.5/
+Using CATALINA_TMPDIR: /usr/local/tomcat8.5//temp
+Using JRE_HOME:        /usr/local/jdk1.8.0_151/jre
+Using CLASSPATH:       /usr/local/tomcat8.5//bin/bootstrap.jar:/usr/local/tomcat8.5//bin/tomcat-juli.jar
+Tomcat started.
+测试
+http://localhost:8081/（如果不是本机，则输入对应的ip地址）
+
+7、程序部署
+[root@rocketmq-nameserver1 tomcat]# ls
+bin  conf  lib  LICENSE  logs  NOTICE  RELEASE-NOTES  RUNNING.txt  temp  webapps  work
+
+webapps文件夹主要用于web应用程序部署，比如你可以把你的应用程序包，如war文件拷到该目录下，容器会自动部署。
+
+
+======RocketMQ安装========================================================================================
+双Master模式
+版本：alibaba-rocketmq-3.5.8
+下载：
+安装之前确保安装了以下的软件,版本尽量高，没要求
+git（git-2.9.5.tar.gz）
+maven(apache-maven-3.5.2-bin.tar.gz)
+jdk8(jdk-8u151-linux-x64.tar.gz)
+tomcat(apache-tomcat-8.5.24.tar.gz)
+
+1、Hosts添加信息 （两台）
+# vim /etc/hosts
+192.168.183.129 rocketmq-nameserver1
+192.168.183.129 rocketmq-master1
+192.168.183.130 rocketmq-nameserver2
+192.168.183.130 rocketmq-master2
+# systemctl restart network.service
+# vim /etc/sysconfig/network
+NETWORKING=yes
+HOSTNAME=rocketmq-nameserver1 (另外一台设置成rocketmq-nameserver2)
+# source /etc/sysconfig/network
+检查配置是否有效
+# ping rocketmq-nameserver1
+# ping rocketmq-nameserver2
+
+2、环境变量配置
+# vim /etc/profile
+ROCKETMQ_HOME=/usr/local/rocketmq/devenv
+export ROCKETMQ_HOME
+export PATH=${PATH}:${ROCKETMQ_HOME}/bin
+# source /etc/profile
+
+3、解压（两台）
+# tar -zxvf rocketmq-3.5.8 -C /usr/local/
+# mv rocketmq rocketmq-3.5.8 
+# ln -s rocketmq-3.5.8 rocketmq (建立软连接)
+
+4、编译
+# cd /usr/local/rocketmq/
+# sh Install.sh
+
+5、创建存储路径（两台）
+# mkdir /usr/local/rocketmq/store
+# mkdir /usr/local/rocketmq/store/commitlog
+# mkdir /usr/local/rocketmq/store/consumequeue
+# mkdir /usr/local/rocketmq/store/index
+
+6、RocketMQ配置文件（两台）
+# vim /usr/local/rocketmq/conf/2m-noslave/broker-a.properties
+# vim /usr/local/rocketmq/conf/2m-noslave/broker-b.properties
+------配置文件内容-------------------------------------------
+#所属集群名字
+brokerClusterName=rocketmq-cluster
+#!!!!!!!!!!!!broker名字，注意此处不同的配置文件填写的不一样!!!!!!!!
+brokerName=broker-a | broker-b
+#0 表示 Master，>0 表示 Slave
+brokerId=0
+#nameServer地址，分号分割
+namesrvAddr=rocketmq-nameserver1:9876;rocketmq-nameserver2:9876
+#在发送消息时，自动创建服务器不存在的topic，默认创建的队列数
+defaultTopicQueueNums=4
+#是否允许 Broker 自动创建Topic，建议线下开启，线上关闭
+autoCreateTopicEnable=true
+#是否允许 Broker 自动创建订阅组，建议线下开启，线上关闭
+autoCreateSubscriptionGroup=true
+#Broker 对外服务的监听端口
+listenPort=10911
+#删除文件时间点，默认凌晨 4点
+deleteWhen=04
+#文件保留时间，默认 48 小时
+fileReservedTime=120
+#commitLog每个文件的大小默认1G
+mapedFileSizeCommitLog=1073741824
+#ConsumeQueue每个文件默认存30W条，根据业务情况调整
+mapedFileSizeConsumeQueue=300000
+#destroyMapedFileIntervalForcibly=120000
+#redeleteHangedFileInterval=120000
+#检测物理文件磁盘空间
+diskMaxUsedSpaceRatio=88
+#存储路径
+storePathRootDir=/usr/local/rocketmq/store
+#commitLog 存储路径
+storePathCommitLog=/usr/local/rocketmq/store/commitlog
+#消费队列存储路径存储路径
+storePathConsumeQueue=/usr/local/rocketmq/store/consumequeue
+#消息索引存储路径
+storePathIndex=/usr/local/rocketmq/store/index
+#checkpoint 文件存储路径
+storeCheckpoint=/usr/local/rocketmq/store/checkpoint
+#abort 文件存储路径
+abortFile=/usr/local/rocketmq/store/abort
+#限制的消息大小
+maxMessageSize=65536
+#flushCommitLogLeastPages=4
+#flushConsumeQueueLeastPages=2
+#flushCommitLogThoroughInterval=10000
+#flushConsumeQueueThoroughInterval=60000
+#Broker 的角色
+#- ASYNC_MASTER 异步复制Master
+#- SYNC_MASTER 同步双写Master
+#- SLAVE
+brokerRole=ASYNC_MASTER
+#刷盘方式
+#- ASYNC_FLUSH 异步刷盘
+#- SYNC_FLUSH 同步刷盘
+flushDiskType=ASYNC_FLUSH
+#checkTransactionMessageEnable=false
+#发消息线程池数量
+#sendMessageThreadPoolNums=128
+#拉消息线程池数量
+#pullMessageThreadPoolNums=128
+
+7、修改日志配置文件（两台）
+# mkdir -p /usr/local/rocketmq/logs
+用sed替换
+# cd /usr/local/rocketmq/conf && sed -i 's#${user.home}#/usr/local/rocketmq#g' *.xml
+
+8、修改启动脚本中的JVM参数（两台）
+# vim /usr/local/rocketmq/bin/runbroker.sh
+JAVA_OPT="${JAVA_OPT} -server -Xms1g -Xmx1g -Xmn512m -XX:PermSize=128m -XX:MaxPermSize=320m"
+
+9、启动NameServer(两台)
+# cd /usr/local/rocketmq/bin
+# nohup sh mqnamesrv &
+
+注意必须先把全部NameServer的启动再启动BrokerServer,启动结果注意查看日志
+10、启动BrokerServer A
+# cd /usr/local/rocketmq/bin
+# nohup sh mqbroker -c /usr/local/rocketmq/conf/2m-noslave/broker-a.properties >/dev/null 2>&1 &
+# netstat -ntlp
+# jps
+# tail -f -n 500 /usr/local/rocketmq/logs/rocketmqlogs/broker.log
+# tail -f -n 500 /usr/local/rocketmq/logs/rocketmqlogs/namesrv.log
+
+11、启动BrokerServer B
+# cd /usr/local/rocketmq/bin
+# nohup sh mqbroker -c /usr/local/rocketmq/conf/2m-noslave/broker-b.properties >/dev/null 2>&1 &
+# netstat -ntlp
+# jps
+# tail -f -n 500 /usr/local/rocketmq/logs/rocketmqlogs/broker.log
+# tail -f -n 500 /usr/local/rocketmq/logs/rocketmqlogs/namesrv.log
+
+12、RocketMQ Console
+本安装使适用alibaba版
+下载：https://github.com/rocketmq/rocketmq-console
+有的需要用eclipse或idea编译打包
+12.1、编译后的war包上传到tomcat的webapps目录下
+12.2、修改配置文件
+# vim /usr/local/tomcat/webapps/rocketmq-console/WEB-INF/classes/config.properties
+rocketmq.namesrv.addr=192.168.183.129:9876;192.168.183.130:9876
+throwDone=true
+12.3、浏览器输入
+http://192.168.183.130:8081/rocketmq-console/
+
+13、mqadmin命令管理
+# cd /usr/local/rocketmq/bin
+查看包含哪些命令
+# sh mqadmin 
+具体命令帮助
+# sh mqadmin help 命令
+
+14、数据清理
+# cd /usr/local/rocketmq/bin
+# sh mqshutdown broker
+# sh mqshutdown namesrv
+# --等待停止（先停broker后停nameserver）
+# rm -rf /usr/local/rocketmq/store
+# mkdir /usr/local/rocketmq/store
+# mkdir /usr/local/rocketmq/store/commitlog
+# mkdir /usr/local/rocketmq/store/consumequeue
+# mkdir /usr/local/rocketmq/store/index
+# --按照上面步骤重启NameServer与BrokerServer
+
+
+-------windows7 安装RocketMQ------------------------------------------------------------------------------
+要求：操作系统：Windows 7 64位旗舰版 、JDK：1.7以上
+1、下载编译好的RocketMQ的发布版，也可以自行编译：https://github.com/alibaba/RocketMQ/releases
+选择 Source code (tar.gz)。
+2、打包：
+进入D:\study_tgl\rocketmq\rocketmq-3.5.8_1\rocketmq-3.5.8 执行install.bat
+3、设置环境变量
+cmd 
+D:\study_tgl\rocketmq\rocketmq-3.5.8_1\rocketmq-3.5.8\target\alibaba-rocketmq-broker\alibaba-rocketmq\bin
+>set NAMESRV_ADDR=127.0.0.1:9876
+4、启动namesrv
+cmd 
+D:\study_tgl\rocketmq\rocketmq-3.5.8_1\rocketmq-3.5.8\target\alibaba-rocketmq-broker\alibaba-rocketmq\bin
+>start/b mqnamesrv.exe  >D:\study_tgl\rocketmq\rocketmq-3.5.8_1\rocketmq-3.5.8\logs\mqnamesrv.log 
+5、启动broker
+>start/b mqbroker.exe -n "127.0.0.1:9876"  >D:\study_tgl\rocketmq\rocketmq-3.5.8_1\rocketmq-3.5.8\logs\mqbroker.log
+
+
+================================================================================================================
+win7 在设置本地连接共享这一步时遇见了“internet连接共享访问被启用时 出现了一个错误 ,（null）
+解决办法：服务 windows firewall 启用
+
+
+======远程访问另外一台虚拟机并连接外网==========================================================================
+关键设置：
+桥接模式（虚拟机IP跟宿主IP设置在同一个网段, 网关设置成宿主IP DNS1=8.8.8.8） + 真机上internet连接共享。
+
+
+======mysql5.7 windows安装======================================================================================
+1、下载地址
+https://dev.mysql.com/downloads/mysql/
+选择Windows (x86, 64-bit), ZIP Archive
+2、解压zip
+3、创建文件夹data,
+   创建my.ini文件。
+4、配置my.ini内容
+	[mysqld]
+	#设置3306端口
+	port = 3306 
+	# 设置mysql的安装目录
+	basedir=D:\\study_tgl\\mysql\\mysql-5.7.20-winx64
+	# 设置mysql数据库的数据的存放目录
+	datadir=D:\\study_tgl\\mysql\\mysql-5.7.20-winx64\\data
+	# 允许最大连接数
+	max_connections=200
+	# 服务端使用的字符集默认为8比特编码的latin1字符集
+	character-set-server=utf8
+	# 创建新表时将使用的默认存储引擎
+	default-storage-engine=INNODB
+5、打开cmd窗口后，将目录切换到你解压文件的bin目录
+6、安装mysql服务
+>mysqld --install
+删除服务
+>mysqld --remove
+7、启动服务
+>net start mysql 
+ps:如果报错“MySql 服务器无法启动 服务器没有报告任何错误”
+执行下面命令 MySQL会自建一个data文件夹，并且建好默认数据库，登录的用户名为root，密码为空
+>mysqld --initialize-insecure --user=mysql 
+>net start mysql
+8、登录MySQL数据库
+>mysql -u root -p 
+修改密码
+>set password = password('新密码');
+未登录修改密码
+>mysqladmin -u用户名 -p旧密码 password 新密码
+9、退出
+>exit
+10、手动启动服务：windows任务管理器打开服务的方式
+>services.msc
+11、环境变量配置
+path D:\study_tgl\mysql\mysql-5.7.20-winx64\bin
+
+------linux redhat mysql5.7安装-----------------------------------
+1、
+# wget http://dev.mysql.com/get/Downloads/MySQL-5.7/mysql-5.7.17-linux-glibc2.5-x86_64.tar.gz
+2、
+# tar -zxvf ./mysql-5.7.17-linux-glibc2.5-x86_64.tar.gz
+3、
+# mv ./mysql-5.7.17-linux-glibc2.5-x86_64 /usr/local/mysql
+4、创建数据仓库目录
+# mkdir /data/mysql
+5、新建一个msyql组，新建msyql用户禁止登录shell
+# groupadd mysql 
+# useradd -r -s /sbin/nologin -g mysql mysql -d /usr/local/mysql 
+6、改变目录属有者
+# cd /usr/local/mysql
+# pwd
+# chown -R mysql .
+# chgrp -R mysql .
+# chown -R mysql /data/mysql
+7、配置参数，此处需要注意记录生成的临时密码，如结尾处的：YLi>7ecpe;YP
+# bin/mysqld --initialize --user=mysql --basedir=/usr/local/mysql --datadir=/data/mysql
+# bin/mysql_ssl_rsa_setup  --datadir=/data/mysql
+8、修改系统配置文件
+# cd /usr/local/mysql/support-files
+# cp my-default.cnf /etc/my.cnf
+# cp mysql.server /etc/init.d/mysql
+# vim /etc/init.d/mysql
+修改以下内容：
+basedir=/usr/local/mysql
+datadir=/data/mysql
+9、启动mysql
+# /etc/init.d/mysql start
+10、登录
+# mysql -hlocalhost -uroot -p
+
+　　--如果出现：-bash: mysql: command not found
+
+　　--就执行： # ln -s /usr/local/mysql/bin/mysql /usr/bin --没有出现就不用执行
+
+--输入第7步生成的临时密码
+
+11、修改密码
+mysql> set password=password('123456');
+设置root账户的host地址（修改了才可以远程连接）
+mysql>grant all privileges on *.* to 'root'@'%' identified by '123456';
+mysql>flush privileges;
+查看表
+mysql> use mysql;
+mysql> select host,user from user;
+12、添加系统路径
+# vim /etc/profile
+添加：
+export PATH=/usr/local/mysql/bin:$PATH
+# source /etc/profile
+13、配置mysql自动启动
+# chmod 755 /etc/init.d/mysql
+# chkconfig --add mysql
+# chkconfig --level 345 mysql on
+14、退出mysql命令窗口
+mysql>exit
+15、查看mysql状态
+# service mysql status
+16、停止mysql
+# service mysql stop
+17、启动mysql
+# service mysql start
+
+======docker 安装==================================================
+版本：Docker version 17.12.0-ce
+1、卸载旧版本
+# yum remove docker docker-common docker-selinux docker-engine
+2、安装依赖包
+# yum install -y yum-utils device-mapper-persistent-data lvm2
+3、鉴于国内网络问题，强烈建议使用国内源
+# yum-config-manager --add-repo https://mirrors.ustc.edu.cn/docker-ce/linux/centos/docker-ce.repo
+官方源
+# yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+4、最新版本的 Docker CE
+# yum-config-manager --enable docker-ce-edge
+5、安装 Docker CE（社区版）
+5.1、更新 yum 软件源缓存
+# yum makecache fast
+5.2、安装 docker-ce
+# yum -y install docker-ce
+6、启动Docker CE
+# systemctl enable docker
+# systemctl start docker
+7、建立 docker 用户组
+# groupadd docker
+   将当前用户加入 docker 组
+# usermod -aG docker $USER
+
+8、退出当前终端并重新登录，进行如下测试。
+测试 Docker 是否安装正确
+# docker run hello-world
+Unable to find image 'hello-world:latest' locally
+latest: Pulling from library/hello-world
+ca4f61b1923c: Pull complete
+Digest: sha256:be0cd392e45be79ffeffa6b05338b98ebb16c87b255f48e297ec7f98e123905c
+Status: Downloaded newer image for hello-world:latest
+Hello from Docker!
+......
+......
+若能正常输出以上信息，则说明安装成功。
+
+9、官方镜像加速
+# vim /etc/docker/daemon.json
+添加以下内容，并重新启动服务
+{	
+	#https://0fc5f2rt.mirror.aliyuncs.com
+	#http://8943ad2c.m.daocloud.io
+  "registry-mirrors": ["https://registry.docker-cn.com"]
+}
+# systemctl daemon-reload
+# systemctl restart docker
+注意：启动文件/usr/lib/systemd/system/docker.service中不能继续添加不然重复了。
+
+10、添加内核参数
+默认配置下，如果在 CentOS 使用 Docker CE 看到下面的这些警告信息：
+WARNING: bridge-nf-call-iptables is disabled
+WARNING: bridge-nf-call-ip6tables is disabled
+请添加内核配置参数以启用这些功能。
+# tee -a /etc/sysctl.conf <<-EOF net.bridge.bridge-nf-call-ip6tables=1 net.bridge.bridge-nf-call-iptables=1 EOF
+
+-------使用脚本自动安装------------------------------------------------------------------
+在测试或开发环境中 Docker 官方为了简化安装流程，提供了一套便捷的安装脚本，CentOS
+系统上可以使用这套脚本安装
+# curl -fsSL get.docker.com -o get-docker.sh
+# sh get-docker.sh --mirror Aliyun
+
+-------容器底层技术----------------------------------------------------------------------
+cgroup 和 namespace 是最重要的两种技术。cgroup 实现资源限额， namespace 实现资源隔离。
+
+-------常用命令--------------------------------------------------------------------------
+2、镜像常用命令
+2.1
+# docker images
+2.2
+# docker inspect 镜像name或ID
+2.3、显示镜像构建历史
+# docker history 镜像name或ID  
+2.4 从容器创建新镜像
+# docker commit  容器name或ID  
+2.5、从 Dockerfile 构建镜像 .当前路径
+# docker build -t csphere/centos:7.1 .
+2.6、通过 tag 命令给镜像打 tag
+# docker tag ubuntu 192.168.183.128:5000/ubuntu:v1
+2.7、从 registry 下载镜像
+docker pull 192.168.183.128:5000/ubuntu:v1     
+2.8、将镜像上传到 registry
+docker push 192.168.183.128:5000/ubuntu:v1 
+2.9、删除Docker host中的镜像
+# docker rmi 镜像name或ID        
+2.10、搜索Docker Hub中的镜像
+docker search mysql   
+
+3、docker run 命令实际上是 docker create 和 docker start 的组合 
+# docker help run
+3.1、-d:以后台方式启动容器。
+# docker run -d -p 2222:22 --name base csphere/centos:7.1
+efa27f93604a377956b62410ca2fec76a2330de67b7cc831f8f4ad373f98786f
+3.2 --restart=always 意味着无论容器因何种原因退出（包括正常退出），就立即重启。
+该参数的形式还可以是 --restart=on-failure:3，意思是如果启动进程退出代码非0，则重启容器，最多重启3次。
+# docker run -d --restart=always httpd:latest
+3.3
+# docker  ps -a
+3.4
+# docker  ps 
+3.5
+# docker stop efa27f93604a
+3.6
+# docker start efa27f93604a
+3.7
+# docker restart efa27f93604a
+3.8
+3.8.1
+# docker rm -f base 
+3.8.2、批量删除所有已经退出的容器
+# docker rm -v $(docker ps -aq -f status=exited)
+3.9
+# docker info 
+3.10、进入容器的两种方法：attach 和 exec
+# docker run -d ubuntu:latest /bin/bash -c "while true; do sleep 1; echo hello; done"
+76225d4d017bd3c15ed6e68cf2f16f7afad685f1470a5922e490ef0275593bd9
+3.10.1
+# docker attach 762
+hello 
+hello
+hello
+可通过 Ctrl+p 然后 Ctrl+q 组合键退出 attach 终端。
+3.10.2 docker exec -it <container> bash|sh 是执行 exec 最常用的方式。 -it：以交互模式打开 打开了一个 bash 终端。
+# docker exec -it 76225d4d017b /bin/bash
+root@76225d4d017b:/# 
+执行exit退出容器，回到 docker host。
+root@76225d4d017b:/# exit
+3.10.3
+attach 与 exec 主要区别如下:
+attach 直接进入容器 启动命令 的终端，不会启动新的进程。
+exec 则是在容器中打开新的终端，并且可以启动新的进程。
+如果想直接在终端中查看启动命令的输出，用 attach；其他情况使用 exec。
+当然，如果只是为了查看启动命令的输出，可以使用 docker logs 命令
+# docker logs -f 76225d4d017b
+3.11
+# docker rename CONTAINER NEW_NAME
+3.12、暂停
+# docker pause CONTAINER 
+3.13、取消暂停继续运行容器
+# docker unpause CONTAINER 
+
+4、
+# docker create CONTAINER
+
+5、网络
+5.1、查看网络
+# docker network ls
+NETWORK ID          NAME                DRIVER              SCOPE
+51f5046ae451        bridge              bridge              local
+a0015b2fd7b8        host                host                local
+c2c83e081605        none                null                local
+5.2、 --network：指定网络方式 host共享主机
+# docker run -it --network=host 192.168.183.128:5000/busybox:v1
+5.3、brctl 安装
+下载bridge-utils-1.5.tar.gz
+http://www.linuxfromscratch.org/blfs/view/svn/basicnet/bridge-utils.html
+# yum -y install autoconf
+产生configure文件
+# autoconf
+# ./configure
+# make && make install
+将命令brctl复制到/sbin下
+# cp /usr/local/sbin/brctl  /sbin
+# brctl 
+5.4、bridge 网络的配置信息
+# docker network inspect bridge
+# ifconfig docker
+# docker network create --driver bridge my_net
+创建网络，可以自动从 subnet 中分配ip地址及网关
+# docker network create --driver bridge --subnet=172.22.16.0/24 --gateway=172.22.16.1 my_net2
+# docker run -it --network=my_net2 192.168.183.128:5000/busybox:v1
+--ip 指定静态ip地址
+# docker run -it --network=my_net2 --ip=172.22.16.8 192.168.183.128:5000/busybox:v1
+查看路由规则
+# ip r
+default via 192.168.183.2 dev ens33 proto static metric 100 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 
+172.18.0.0/16 dev br-fc5b32550602 proto kernel scope link src 172.18.0.1 
+172.22.16.0/24 dev br-02948747e29d proto kernel scope link src 172.22.16.1 
+192.168.183.0/24 dev ens33 proto kernel scope link src 192.168.183.128 metric 100 
+# sysctl net.ipv4.ip_forward
+net.ipv4.ip_forward = 1
+# iptables-save
+.....
+-A DOCKER-ISOLATION -i br-fc5b32550602 -o br-02948747e29d -j DROP
+-A DOCKER-ISOLATION -i br-02948747e29d -o br-fc5b32550602 -j DROP
+-A DOCKER-ISOLATION -i docker0 -o br-02948747e29d -j DROP
+-A DOCKER-ISOLATION -i br-02948747e29d -o docker0 -j DROP
+-A DOCKER-ISOLATION -i docker0 -o br-fc5b32550602 -j DROP
+-A DOCKER-ISOLATION -i br-fc5b32550602 -o docker0 -j DROP
+......
+为容器添加一块的网卡
+# docker network connect NETWORK CONTAINER
+
+5.5、Docker DNS Server
+注意：使用 docker DNS 有个限制：只能在 user-defined 网络中使用。也就是说，默认的 bridge 网络是无法使用 DNS 的。
+# docker run -it --network=my_net2 --name bbox2 192.168.183.128:5000/busybox:v1
+/ # ping -c 3 bbox1
+
+5.6、joined 容器
+busybox 和 web1 的网卡 mac 地址与 IP 完全一样，它们共享了相同的网络栈。busybox 可以直接用 127.0.0.1 访问 web1 的 http 服务
+# docker run -d --name web1 httpd:latest
+# docker run -it --network=container:web1 192.168.183.128:5000/busybox:v1
+/ # wget 127.0.0.1
+Connecting to 127.0.0.1 (127.0.0.1:80)
+index.html           100% |......
+joined 容器非常适合以下场景：
+不同容器中的程序希望通过 loopback 高效快速地通信，比如 web server 与 app server。
+希望监控其他容器的网络流量，比如运行在独立容器中的网络监控程序。
+
+5.7、容器访问外部通过nat
+# iptables -t nat -S
+# tcpdump -i docker0 -n icmp
+
+5.8、外部访问容器通过端口映射 如指定参数-p 8080:80
+
+6、
+6.1、bind mount 
+-v 的格式为 <host path>:<container path>。可以指定数据的读写权限，默认是可读可写，ro可指定为只读
+# docker run -d -p 8081:80 -v /docker/htpocs:/usr/local/apache2/htdocs:ro httpd:latest
+bind mount 的使用直观高效，易于理解，但它也有不足的地方：bind mount 需要指定 host 文件系统的特定路径，这就限制了容器的可移植性，当需要将容器迁移到其他 host，而该 host 没有要 mount 的数据或者数据不在相同的路径时，操作会失败。
+6.2、docker managed volume
+# docker run -d -p 8082:80 -v /usr/local/apache2/htdocs httpd:latest
+35cd52fa283e2137446da53d813e36863da601af85e28820fd46c37470562ed2
+# docker inspect 35cd52fa283
+......
+"Mounts": [
+            {
+                "Type": "volume",
+                "Name": "29bdcb19eb76267db7d6bcb28f4a3ee47c7e856ffc083791776d2497b2c79340",
+                "Source": "/var/lib/docker/volumes/29bdcb19eb76267db7d6bcb28f4a3ee47c7e856ffc083791776d2497b2c79340/_data",
+                "Destination": "/usr/local/apach2/htdocs",
+                "Driver": "local",
+                "Mode": "",
+                "RW": true,
+                "Propagation": ""
+            }
+        ]
+......
+
+
+7、共享数据
+7.1、容器与host
+两种类型的 data volume，它们均可实现在容器与 host 之间共享数据
+docker cp 可以在容器和 host 之间拷贝数据
+# docker cp /var/lib/docker/volumes/29bdcb19eb76267db7d6bcb28f4a3ee47c7e856ffc083791776d2497b2c79340/_data/index.html 35cd52fa283e:/usr/local/apach2/htdocs
+7.2、容器之间共享数据 
+7.2.1、将共享数据放在bind mount中，然后将其mount到多个容器。
+7.2.2、volume container
+# docker create --name vc_data -v /docker/htdocs:/usr/local/apache2/htdocs -v /docker/managedvolume 192.168.183.128:5000/busybox:v1
+# docker run -d -p 80 --name web1 --volumes-from vc_data httpd:latest
+# docker run -d -p 80 --name web2 --volumes-from vc_data httpd:latest
+volume container 的特点：
+与 bind mount 相比，不必为每一个容器指定 host path，所有 path 都在 volume container 中定义好了，容器只需与 volume container 关联，实现了容器与 host 的解耦。
+使用 volume container 的容器其 mount point 是一致的，有利于配置的规范和标准化，但也带来一定的局限，使用时需要综合考虑。
+7.3、data-packed volume container
+原理是将数据打包到镜像中，然后通过 docker managed volume 共享。
+# vim Dockerfile
+FROM 192.168.183.128:5000/busybox:v1
+ADD htdocs /usr/local/apache2/htdocs
+VOLUME /usr/local/apache2/htdocs
+
+ADD 将静态文件添加到容器目录 /usr/local/apache2/htdocs。
+VOLUME 的作用与 -v 等效，用来创建 docker managed volume，mount point 为 /usr/local/apache2/htdocs，因为这个目录就是 ADD 添加的目录，所以会将已有数据拷贝到 volume 中。
+
+# docker build -t datapacked .
+# docker create --name vc_data datapacked
+# docker run -d -p 80 --volumes-from vc_data httpd:latest
+# curl 127.0.0.1:1024
+hello container
+
+8、
+8.1
+# docker volume ls
+8.2、如果删除容器时没有带-v这样就会产生孤儿，volume删除孤儿 volume
+# docker volume rm 1c0ec27f48d65fbef0d91c8ac91c95062445c9d141de094b1f57498e0aeaa494
+8.3、批量删除孤儿 volume
+# docker volume rm $(docker volume ls -q)
+
+
+------docker-machine--------------------------------------------------------------------------------------------------------
+# curl -L https://github.com/docker/machine/releases/download/v0.13.0/docker-machine-`uname -s`-`uname -m` >/tmp/docker-machine && \
+> chmod +x /tmp/docker-machine && \
+> sudo cp /tmp/docker-machine /usr/local/bin/docker-machine
+1、安装
+1.1、下载
+https://github.com/docker/machine/releases
+选择docker-machine-Linux-x86_64
+1.2、
+# mv docker-machine-Linux-x86_64 /usr/local/bin/docker-machine
+# chmod +x /usr/local/bin/docker-machine
+1.3、
+# docker-machine version
+docker-machine version 0.13.0, build 9ba6da9
+
+2、  
+# docker-machine ls
+3、创建machine
+3.1、能够无密码登录远程主机
+# ssh-copy-id 192.168.183.129
+3.2、
+# docker-machine create --driver generic --generic-ip-address=192.168.183.129 host1
+
+
+======使用ssh-keygen和ssh-copy-id三步实现SSH无密码登录=========================================================================
+ssh-keygen  产生公钥与私钥对.
+ssh-copy-id 将本机的公钥复制到远程机器的authorized_keys文件中，ssh-copy-id也能让你有到远程机器的home、 ~./ssh、~/.ssh/authorized_keys的权利。
+1、在本地机器上使用ssh-keygen产生公钥私钥对
+# ssh-keygen
+一直按Entey
+2、用ssh-copy-id将公钥复制到远程机器中
+# ssh-copy-id -i ~/.ssh/id_rsa.pub remote-host
+注意: ssh-copy-id 将key写到远程机器的 ~/ .ssh/authorized_key.文件中
+3、 登录到远程机器不用输入密码
+# ssh 192.168.183.129
+
+
+
+
+
+
+
+
+
+
+------mysql docker-----------------------------------------------------------------------------------------------------------
+官方
+# docker pull mysql
+# docker run --rm --name mysql -it -v /data/docker/mysql/:/var/lib/mysql -e MYSQL_ROOT_PASSWORD=123456 mysql:latest /bin/bash
+
+------
+1、
+1.1
+# systemctl status docker.service
+1.2、默认配置下，Docker daemon（服务器组件，以 Linux 后台服务的方式运行， 运行在 Docker host 上，负责创建、运行、监控容器，构建、存储镜像） 只能响应来自本地 Host 的客户端请求。如果要允许远程客户端请求，需要在配置文件中打开 TCP 监听
+# vim /etc/systemd/system/multi-user.target.wants/docker.service
+在环境变量 ExecStart 后面添加 -H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock，允许来自任意 IP 的客户端连接,注意防火墙端口开通。
+ExecStart=/usr/bin/dockerd -H tcp://0.0.0.0:2357 --registry-mirror=https://0fc5f2rt.mirror.aliyuncs.com
+ExecStart=/usr/bin/dockerd -H tcp://0.0.0.0:2357 --registry-mirror=http://8943ad2c.m.daocloud.io 
+
+重启 Docker daemon
+# systemctl daemon-reload
+# systemctl restart docker.service 
+访问运程容器信息
+# docker -H 192.168.183.128:2375 info
+
+-------公共仓库------------------------------------------------------
+1、登录阿里云docker registry:
+# docker login --username=alytgl registry.cn-shenzhen.aliyuncs.com
+# password tgl12345
+2、从registry中拉取镜像
+# docker pull registry.cn-shenzhen.aliyuncs.com/alytgl/study:[镜像版本号]
+3、为镜像打标签
+# docker tag [ImageId] registry.cn-shenzhen.aliyuncs.com/alytgl/study:[镜像版本号]
+4、将镜像推送到registry：
+# docker push registry.cn-shenzhen.aliyuncs.com/alytgl/study:[镜像版本号]
+
+如果您申请的机器是在经典网络，请使用 registry-internal.cn-shenzhen.aliyuncs.com 作为registry的域名登录, 并作为镜像名空间前缀
+如果您申请的机器是在vpc网络的，请使用 registry-vpc.cn-shenzhen.aliyuncs.com 作为registry的域名登录, 并作为镜像名空间前缀
+
+-------本地仓库------------------------------------------------------
+1、
+# docker pull registry
+2、
+# vim /usr/lib/systemd/system/docker.service
+ExecStart=/usr/bin/dockerd 后面加上 --insecure-registry 192.168.183.128:5000
+# systemctl daemon-reload
+# systemctl restart docker
+3、
+# docker run -d -p 5000:5000 -v /docker/myRegistry:/var/lib/registry registry:latest
+4、
+# docker tag 镜像ID或name 192.168.183.128:5000/镜像:版本号
+5、
+# docker push 192.168.183.128:5000/镜像:版本号
+
+======linux 命令===========================================
+1、查看DNS
+# nmcli dev show | grep DNS  
+2、
+# ls -lahs | xargs ls
+# tree 
+3、查看CPU 的使用情况
+# top 
+
+
+ 
