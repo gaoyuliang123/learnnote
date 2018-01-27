@@ -185,7 +185,7 @@ $ git tag push origin --tags
 10、如果标签已经推送到远程,要删除远程标签就麻烦一点,先从本地删除,然后,从远程删除。删除命令也是push。
 $ git tag -d v0.9
 $ git tag push origin :refs/tags/v0.9
-
+$ git config --global alias.lg "log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit"
 ------github和码云------------------------------------------------------
 
 ------自定义git---------------------------------------------------------
