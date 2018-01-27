@@ -84,6 +84,11 @@ $ git push -u origin master
 $ git clone https://github.com/gaoyuliang123/gitskills.git
 $ git clone git@github.com:gaoyuliang123/gitskills.git
 
+------
+git pull=fetch+merge，pull的话，下拉远程分支并与本地分支合并。fetch只是下拉远程分支，怎么合并，可以自己再做选择。
+$ git pull 
+$ git fetch 
+
 ------github-设置SSH Key-------------------------------------------------------
 1、查看本机是否有了ssh key 密钥，有了就备份
 $ cd ~/.ssh
