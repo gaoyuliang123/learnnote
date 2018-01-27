@@ -73,6 +73,7 @@ $ git rm test.txt
 可以从这个仓库克隆出新的仓库，也可以把一个已有的本地仓库与之关联，然后，把本地仓库的内容推送到GitHub仓库。
 15、关联远程仓库，远程库的名字就是origin，这是Git默认的叫法，也可以改成别的。
 $ git remote add origin https://github.com/gaoyuliang123/learngit.git
+删除关联的远仓库
 $ git remote rm origin
 16、把本地库的所有内容推送到远程库上，由于远程库是空的，我们第一次推送master分支时，加上了-u参数，Git不但会把本地的master分支内容推送的远程新的master分支，还会把本地的master分支和远程的master分支关联起来，在以后的推送或者拉取时就可以简化命令。
 $ git push -u origin master
@@ -185,7 +186,7 @@ $ git tag push origin --tags
 10、如果标签已经推送到远程,要删除远程标签就麻烦一点,先从本地删除,然后,从远程删除。删除命令也是push。
 $ git tag -d v0.9
 $ git tag push origin :refs/tags/v0.9
-$ git config --global alias.lg "log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit"
+
 ------github和码云------------------------------------------------------
 
 ------自定义git---------------------------------------------------------
@@ -196,6 +197,7 @@ $ git config --global alias.lg "log --color --graph --pretty=format:'%Cred%h%Cre
 .gitignore文件本身要放到版本库里，并且可以对.gitignore做版本管理！
 2、配置别名
 $ git config --global alias.st status 
+$ git config --global alias.lg "log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit"
 
 ------搭建Git服务器-----------------------------------------------------
 
